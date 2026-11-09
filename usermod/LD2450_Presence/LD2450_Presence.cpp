@@ -384,7 +384,7 @@ class LD2450Presence : public Usermod {
         uint32_t left    = since < delayMs ? delayMs - since : 0;
         s = F("off in "); s += (left + 999) / 1000; s += F("s");
       }
-      else if (present)            { s = F("present, "); s += targetCount; s += F(" tgt @ "); s += nearestMm; s += F(" mm"); }
+      else if (present)            { s = F("present, "); s += (int)targetCount; s += F(" tgt @ "); s += (int)nearestMm; s += F(" mm"); }
       else                         s = F("clear");
       info.add(s);
 
@@ -394,6 +394,23 @@ class LD2450Presence : public Usermod {
                      : F(":{enabled:true}});\"><i class=\"icons off\">&#xe08f;</i>");
       btn += F("</button>");
       info.add(btn);
+
+      // one row per output: state, GPIO, and a toggle (manual override until the next presence change)
+      for (uint8_t i = 0; i < 2; i++) {
+        char key[16];
+        snprintf_P(key, sizeof(key), PSTR("LD2450 Output %d"), i + 1);   // char[] key is copied by ArduinoJson
+        JsonArray row = user.createNestedArray(key);
+        if (outPin[i] < 0) { row.add(F("no pin set")); continue; }
+        String o = outState[i] ? F("on") : F("off");
+        o += F(" (GPIO "); o += (int)outPin[i]; o += F(")");
+        o += F(" <button class=\"btn btn-xs\" onclick=\"requestJson({");
+        o += FPSTR(_name);
+        o += F(":{out"); o += (int)(i + 1);
+        o += outState[i] ? F(":false}});\"><i class=\"icons on\">&#xe08f;</i>")
+                         : F(":true}});\"><i class=\"icons off\">&#xe08f;</i>");
+        o += F("</button>");
+        row.add(o);
+      }
 
       if (txPin >= 0 && uartActive) {
         JsonArray bt = user.createNestedArray(F("LD2450 Bluetooth"));

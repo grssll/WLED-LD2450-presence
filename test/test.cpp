@@ -49,6 +49,16 @@ int main() {
   tick(100, 1); assert(presence() && g_pin[4] == 1 && g_pin[5] == 1);
   assert(presets.size() == 1 && presets[0] == 3);     // on-preset applied (WLED was off)
   std::cout << "on after 2 frames, on-preset applied\n";
+  {
+    StaticJsonDocument<2048> d; JsonObject r = d.to<JsonObject>(); ld2450_presence.addToJsonInfo(r);
+    std::string o1 = r["u"]["LD2450 Output 1"][0].as<const char*>();
+    std::string o2 = r["u"]["LD2450 Output 2"][0].as<const char*>();
+    std::string st = r["u"]["LD2450"][0].as<const char*>();
+    assert(o1.rfind("on (GPIO 4)", 0) == 0 && o1.find("out1:false") != std::string::npos);
+    assert(o2.rfind("on (GPIO 5)", 0) == 0 && o2.find("out2:false") != std::string::npos);
+    assert(st == "present, 1 tgt @ 1236 mm");
+    std::cout << "info rows: [" << st << "] [" << o1.substr(0, 11) << "] [" << o2.substr(0, 11) << "]\n";
+  }
 
   // off-delay 10 s: still on at 9.9 s, off at 10 s, off-preset applied
   tick(9900, 0); assert(presence());

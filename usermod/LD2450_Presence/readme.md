@@ -11,6 +11,11 @@ usermod only decides "any target present?".
 - `preset-if-off-only` (default on): on-preset only fires if WLED is off; the
   off-preset only fires if the usermod applied the on-preset.
 
+## Info page
+- **LD2450**: clear / present (targets, nearest mm) / off in Ns / radar offline, plus an enable toggle
+- **LD2450 Output 1 / 2**: on/off and GPIO, with a toggle (manual override until the next presence change)
+- **LD2450 Bluetooth**: on/off buttons (only shown when a TX pin is set)
+
 ## Settings (Config → Usermods → LD2450)
 | Key | Default | Notes |
 |---|---|---|
