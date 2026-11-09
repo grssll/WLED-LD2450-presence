@@ -1,0 +1,77 @@
+name: Build WLED + LD2450 (ESP32-C3)
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  WLED_REF: v16.0.1          # WLED release to build against
+  PIO_ENV: esp32c3_ld2450
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out this repo
+        uses: actions/checkout@v4
+        with:
+          path: usermod-repo
+
+      - name: Check out WLED ${{ env.WLED_REF }}
+        uses: actions/checkout@v4
+        with:
+          repository: wled/WLED
+          ref: ${{ env.WLED_REF }}
+          path: wled
+
+      - name: Logic tests (host)
+        run: |
+          g++ -std=gnu++17 -Wall -Wno-unused-parameter \
+            -I usermod-repo/test -I wled/wled00/src/dependencies/json \
+            usermod-repo/test/test.cpp -o ld2450_test
+          ./ld2450_test
+
+      - name: Add usermod and build env to WLED
+        run: |
+          cp -r usermod-repo/usermod/LD2450_Presence wled/usermods/
+          cp usermod-repo/platformio_override.ini wled/
+
+      - name: Set up Node.js (WLED web UI)
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: wled/.nvmrc
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install PlatformIO + esptool
+        working-directory: wled
+        run: pip install -r requirements.txt esptool
+
+      - name: Build firmware
+        working-directory: wled
+        run: pio run -e $PIO_ENV
+
+      - name: Package flash files
+        working-directory: wled
+        run: |
+          B=.pio/build/$PIO_ENV
+          OUT=$GITHUB_WORKSPACE/flash
+          mkdir -p $OUT
+          BOOT_APP0=$(find ~/.platformio -name boot_app0.bin | head -1)
+          # first flash: one merged image at 0x0 (bootloader, partitions, boot_app0, app)
+          python -m esptool --chip esp32c3 merge_bin -o $OUT/WLED-LD2450-C3-factory.bin \
+            0x0 $B/bootloader.bin 0x8000 $B/partitions.bin 0xe000 "$BOOT_APP0" 0x10000 $B/firmware.bin
+          # later updates: app only, via WLED's Update page (OTA)
+          cp $B/firmware.bin $OUT/WLED-LD2450-C3-ota.bin
+          ls -la $OUT
+
+      - name: Upload firmware artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: wled-ld2450-esp32c3
+          path: flash/
+          retention-days: 90
