@@ -5,7 +5,9 @@
 #include <cstdio>
 #include <cstring>
 #include <cmath>
+using std::isnan;  // Arduino exposes isnan() globally
 #include <string>
+#include <strings.h>
 typedef uint8_t byte;
 #define PROGMEM
 #define PSTR(s) (s)
@@ -14,6 +16,7 @@ class __FlashStringHelper;
 #define FPSTR(p) (reinterpret_cast<const __FlashStringHelper*>(p))
 #define snprintf_P snprintf
 #define DEBUG_PRINTF_P(...) do {} while (0)
+#define DEBUG_PRINTLN(...) do {} while (0)
 #define HIGH 1
 #define LOW 0
 #define OUTPUT 1
@@ -71,7 +74,13 @@ struct HardwareSerial {
 extern HardwareSerial Serial1;
 #define USERMOD_ID_UNSPECIFIED 1
 enum struct PinOwner : uint8_t { None = 0, UM_Unspecified = USERMOD_ID_UNSPECIFIED };
-namespace PinManager { bool allocatePin(byte gpio, bool output, PinOwner tag); bool deallocatePin(byte gpio, PinOwner tag); }
+namespace PinManager { bool allocatePin(byte gpio, bool output, PinOwner tag); bool deallocatePin(byte gpio, PinOwner tag);
+  byte allocateLedc(byte channels); void deallocateLedc(byte pos, byte channels); }
+uint32_t ledcSetup(uint8_t channel, uint32_t freq, uint8_t bits);
+void ledcAttachPin(uint8_t pin, uint8_t channel);
+void ledcDetachPin(uint8_t pin);
+void ledcWrite(uint8_t channel, uint32_t duty);
+uint32_t analogReadMilliVolts(uint8_t pin);
 template<typename DestType> bool getJsonValue(const JsonVariant& element, DestType& destination) {
   if (element.isNull()) { return false; } destination = element.as<DestType>(); return true; }
 template<typename DestType, typename DefaultType> bool getJsonValue(const JsonVariant& element, DestType& destination, const DefaultType defaultValue) {
@@ -80,7 +89,7 @@ template<typename DestType, typename DefaultType> bool getJsonValue(const JsonVa
 bool applyPreset(byte index, byte callMode);
 extern byte bri;
 #define MQTT_MAX_TOPIC_LEN 32
-struct AsyncMqttClient { bool connected(); uint16_t publish(const char*, uint8_t, bool, const char* = nullptr, size_t = 0); };
+struct AsyncMqttClient { bool connected(); uint16_t publish(const char*, uint8_t, bool, const char* = nullptr, size_t = 0); uint16_t subscribe(const char*, uint8_t); };
 extern AsyncMqttClient* mqtt;
 #define WLED_MQTT_CONNECTED (mqtt != nullptr && mqtt->connected())
 extern char mqttDeviceTopic[MQTT_MAX_TOPIC_LEN + 1], mqttStatusTopic[MQTT_MAX_TOPIC_LEN + 8], mqttClientID[41], serverDescription[33], versionString[];
@@ -105,6 +114,7 @@ class Usermod {
     virtual void addToConfig(JsonObject& obj) {}
     virtual bool readFromConfig(JsonObject& obj) { return true; }
     virtual void onMqttConnect(bool sessionPresent) {}
+    virtual bool onMqttMessage(char* topic, char* payload) { return false; }
     virtual uint16_t getId() { return USERMOD_ID_UNSPECIFIED; }
   private: virtual void appendConfigData() {}
 };
